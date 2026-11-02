@@ -125,12 +125,22 @@ chmod 0440 /etc/sudoers.d/10-installer
 log_success "Permissões de sudo aplicadas com segurança."
 
 # -----------------------------------------------------------------------------
-# 5. Habilitação de Daemons de Sistema
+# 5. Configuração de ZRAM e Daemons de Sistema (Rede, Tempo e Firewall)
 # -----------------------------------------------------------------------------
-log_info "Habilitando serviços essenciais de rede e sincronização de horário..."
+log_info "Configurando ZRAM com algoritmo zstd (swap comprimido em RAM)..."
+pacman -S --noconfirm --needed zram-generator firewalld btrfs-progs >/dev/null
+
+cat <<'EOF' > /etc/systemd/zram-generator.conf
+[zram0]
+compression-algorithm = zstd
+EOF
+log_success "Arquivo /etc/systemd/zram-generator.conf gerado."
+
+log_info "Habilitando serviços essenciais de rede, firewall e sincronização de horário..."
 systemctl enable NetworkManager.service
+systemctl enable firewalld.service
 systemctl enable systemd-timesyncd.service
-log_success "Serviços habilitados."
+log_success "Serviços NetworkManager, firewalld e systemd-timesyncd habilitados."
 
 # -----------------------------------------------------------------------------
 # 6. Instalação e Configuração do Bootloader (systemd-boot)
