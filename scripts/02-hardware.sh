@@ -68,18 +68,33 @@ if [[ -n "${UCODE_PKG}" ]]; then
 fi
 
 # -----------------------------------------------------------------------------
-# 3. Stack NVIDIA DKMS e Early KMS (Kernel Mode Setting)
+# 3. Stack NVIDIA DKMS (Open Source ou Proprietário) e Early KMS
 # -----------------------------------------------------------------------------
-log_info "Instalando stack NVIDIA DKMS e utilitários de aceleração gráfica..."
+# NVIDIA_MODULE_TYPE:
+# "open" (Padrão recomendado para Turing e superiores: RTX 20xx, 30xx, 40xx, GTX 16xx)
+# "proprietary" (Para arquiteturas legadas Maxwell GTX 9xx e Pascal GTX 10xx)
+NVIDIA_MODULE_TYPE="${NVIDIA_MODULE_TYPE:-open}"
+
+if [[ "${NVIDIA_MODULE_TYPE}" == "open" ]]; then
+    log_info "Selecionado módulo Open-Source da NVIDIA (nvidia-open-dkms)..."
+    NVIDIA_DKMS_PKG="nvidia-open-dkms"
+else
+    log_info "Selecionado módulo proprietário clássico da NVIDIA (nvidia-dkms)..."
+    NVIDIA_DKMS_PKG="nvidia-dkms"
+fi
+
+log_info "Instalando stack gráfica NVIDIA e suporte a PRIME Render Offload..."
 
 NVIDIA_PACKAGES=(
-    nvidia-dkms
+    "${NVIDIA_DKMS_PKG}"
     nvidia-utils
     lib32-nvidia-utils
     nvidia-settings
     opencl-nvidia
     lib32-opencl-nvidia
-    nvtop
+    nvidia-prime            # Suporte a prime-run para offloading gráfico sob demanda
+    libva-nvidia-driver     # Aceleração VA-API em navegadores e players de vídeo
+    nvtop                   # Monitor TUI de GPU
 )
 
 pacman -S --noconfirm --needed "${NVIDIA_PACKAGES[@]}"
@@ -102,6 +117,7 @@ Operation=Upgrade
 Operation=Remove
 Type=Package
 Target=nvidia-dkms
+Target=nvidia-open-dkms
 Target=linux
 
 [Action]
@@ -152,6 +168,20 @@ log_info "Preparando ambiente para compilação do awccd para Dell G15..."
 
 pacman -S --noconfirm --needed cmake libusb git
 
+# Concede elevação temporária para o makepkg instalar dependências via pacman
+TEMP_SUDO_FILE="/etc/sudoers.d/99-temp-awccd-bootstrap"
+cat <<EOF > "${TEMP_SUDO_FILE}"
+${TARGET_USER} ALL=(ALL) NOPASSWD: ALL
+EOF
+chmod 0440 "${TEMP_SUDO_FILE}"
+
+cleanup_awccd_sudo() {
+    if [[ -f "${TEMP_SUDO_FILE}" ]]; then
+        rm -f "${TEMP_SUDO_FILE}"
+    fi
+}
+trap cleanup_awccd_sudo EXIT
+
 AWCCD_BUILD_DIR="/tmp/awccd-build"
 rm -rf "${AWCCD_BUILD_DIR}"
 mkdir -p "${AWCCD_BUILD_DIR}"
@@ -165,6 +195,8 @@ su - "${TARGET_USER}" -c "
 "
 
 rm -rf "${AWCCD_BUILD_DIR}"
+cleanup_awccd_sudo
+trap - EXIT
 
 # Garante que o módulo de interface de controle da placa-mãe seja carregado
 echo "dell-wmi" > /etc/modules-load.d/dell-wmi.conf

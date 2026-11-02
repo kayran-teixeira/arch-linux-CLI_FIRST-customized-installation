@@ -35,6 +35,7 @@ VIRT_PACKAGES=(
     qemu-img           # Manipulação de formatos de disco (qcow2, raw)
     libvirt            # Daemon de gerenciamento de virtualização
     virt-install       # Criação de VMs via linha de comando
+    virt-manager       # Interface gráfica para gerenciamento de máquinas virtuais KVM
     edk2-ovmf          # Firmware UEFI x86_64 para VMs modernas
     dnsmasq            # Servidor DHCP/DNS local para a bridge virtual
     iptables-nft       # Regras de NAT e firewall para tráfego das VMs
