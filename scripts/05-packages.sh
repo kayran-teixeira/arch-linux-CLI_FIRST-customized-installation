@@ -81,10 +81,13 @@ GAMING_MEDIA_PACKAGES=(
 )
 pacman -S --noconfirm --needed "${GAMING_MEDIA_PACKAGES[@]}"
 
-log_info "Instalando JDKs e runtime Java..."
+log_info "Instalando matriz de JDKs Java (8, 11, 17, 21)..."
 JAVA_PACKAGES=(
-    jdk17-openjdk           # Versão estável padrão da indústria e Android Gradle
-    jdk-openjdk             # Versão mais recente para testes e desenvolvimento
+    jdk8-openjdk
+    jdk11-openjdk
+    jdk17-openjdk           # Versão padrão da indústria e compatível com Android Gradle
+    jdk21-openjdk           # Versão LTS moderna
+    jdk-openjdk             # Versão mais recente
 )
 pacman -S --noconfirm --needed "${JAVA_PACKAGES[@]}"
 
@@ -92,6 +95,15 @@ pacman -S --noconfirm --needed "${JAVA_PACKAGES[@]}"
 log_info "Configurando JDK 17 como versão padrão do sistema..."
 archlinux-java set java-17-openjdk
 log_success "Java padrão configurado: $(archlinux-java get)"
+
+log_info "Instalando ferramentas de ambiente Python isolado (uv, pipx)..."
+PYTHON_PACKAGES=(
+    python
+    python-pip
+    python-pipx
+    uv                      # Gerenciador ultrarrápido de pacotes e venvs em Rust
+)
+pacman -S --noconfirm --needed "${PYTHON_PACKAGES[@]}"
 
 # -----------------------------------------------------------------------------
 # 2. Concessão Temporária de Sudo NOPASSWD para Instalações AUR
@@ -108,3 +120,30 @@ cleanup_pkg_sudo() {
     if [[ -f "${TEMP_SUDO_FILE}" ]]; then
         log_warn "Revogando privilégios NOPASSWD do usuário ${TARGET_USER}..."
         rm -f "${TEMP_SUDO_FILE}"
+    fi
+}
+trap cleanup_pkg_sudo EXIT
+
+# -----------------------------------------------------------------------------
+# 3. Instalação de Aplicações via AUR (yay)
+# -----------------------------------------------------------------------------
+log_info "Instalando ferramentas de desenvolvimento e launchers via AUR..."
+
+AUR_PACKAGES=(
+    visual-studio-code-bin
+    jetbrains-toolbox
+    atlauncher-bin
+    envycontrol
+)
+
+su - "${TARGET_USER}" -c "
+    set -euo pipefail
+    yay -S --noconfirm --needed ${AUR_PACKAGES[*]}
+"
+
+log_success "Pacotes AUR instalados com sucesso."
+
+cleanup_pkg_sudo
+trap - EXIT
+
+log_success "Módulo 05-packages.sh finalizado com sucesso."
