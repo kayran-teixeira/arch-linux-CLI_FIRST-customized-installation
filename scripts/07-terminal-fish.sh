@@ -34,6 +34,11 @@ log_info "Instalando Kitty, Fish, Fastfetch, Tealdeer e fontes tipográficas..."
 TERM_PACKAGES=(
     kitty                      # Emulador de terminal acelerado via OpenGL
     fish                       # Shell interativo com syntax highlighting e autosugestões
+    starship                   # Prompt de linha de comando rápido e personalizável
+    zoxide                     # Navegação inteligente de diretórios (z / cd moderno)
+    eza                        # Substituto moderno do ls com ícones e status git
+    fzf                        # Buscador fuzzy para histórico e navegação interativa
+    htop                       # Monitor de processos interativo em terminal
     fastfetch                  # Telemetria rápida do sistema em C
     tealdeer                   # Implementação em Rust de alta performance do tldr
     ttf-jetbrains-mono-nerd    # Fonte com glifos e símbolos para IDEs e terminal
@@ -132,14 +137,47 @@ end
 # -----------------------------------------------------------------------------
 # Aliases e Abreviações Operacionais
 # -----------------------------------------------------------------------------
-# Listagem moderna com cores
-alias ls="ls --color=auto"
-alias ll="ls -lh --color=auto"
-alias la="ls -lah --color=auto"
+# Listagem moderna com eza (ícones, permissões e status git)
+if command -v eza &>/dev/null
+    alias ls="eza --icons=auto"
+    alias ll="eza -lh --icons=auto --git"
+    alias la="eza -lah --icons=auto --git"
+    alias tree="eza --tree --icons=auto"
+else
+    alias ls="ls --color=auto"
+    alias ll="ls -lh --color=auto"
+    alias la="ls -lah --color=auto"
+end
+
+# Integrações Modernas de Shell (Starship Prompt e Zoxide)
+if command -v starship &>/dev/null
+    starship init fish | source
+end
+
+if command -v zoxide &>/dev/null
+    zoxide init fish | source
+end
+
+if command -v fnm &>/dev/null
+    fnm env --use-on-cd --shell fish | source
+end
 
 # Utilitários de arquivo e cheatsheets
 alias cat="ouch decompress"
 alias t="tldr"
+
+# Função interativa para seleção de cheatsheets com fzf
+function colinha
+    set -l pages_dir "$HOME/.local/share/tealdeer/pages/custom"
+    if test -d "$pages_dir"
+        set -l selected (ls $pages_dir/*.page 2>/dev/null | xargs -n 1 basename -s .page | fzf --prompt="Colinha CLI > " --height=40% --layout=reverse --border)
+        if test -n "$selected"
+            tldr "$selected"
+        end
+    else
+        echo "Nenhuma página customizada encontrada em $pages_dir"
+    end
+end
 
 # Ejeção segura de discos garantindo esvaziamento do buffer de I/O
 alias safedrive="sync && udisksctl unmount -b"
@@ -347,6 +385,264 @@ cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-android.page"
 
 - Espelhar a tela do aparelho com aceleração gráfica e taxa de quadros máxima:
   `scrcpy --max-fps 60 --video-bit-rate 16M`
+EOF
+
+# Página 6: Gestão de Versões Java (archlinux-java)
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-java.page"
+# arch-java
+
+> Gerenciamento e alternância de versões de JDK instaladas no Arch Linux.
+
+- Listar todos os ambientes Java instalados e ver qual é o padrão:
+  `archlinux-java status`
+
+- Definir uma versão específica como padrão do sistema:
+  `sudo archlinux-java set java-17-openjdk`
+
+- Definir versão mais recente (OpenJDK mais novo) como padrão:
+  `sudo archlinux-java set java-21-openjdk`
+
+- Desmarcar a versão ativa do Java:
+  `sudo archlinux-java unset`
+
+- Verificar a versão em execução e variáveis de ambiente:
+  `java -version && echo $JAVA_HOME`
+EOF
+
+# Página 7: Gerenciamento de Serviços e Logs (systemctl e journalctl)
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-systemd.page"
+# arch-systemd
+
+> Controle de daemons e análise de logs no Systemd.
+
+- Iniciar ou parar um serviço imediatamente:
+  `sudo systemctl start <servico>` / `sudo systemctl stop <servico>`
+
+- Habilitar serviço para o boot e iniciar imediatamente:
+  `sudo systemctl enable --now <servico>`
+
+- Verificar status detalhado, PID e logs recentes de um serviço:
+  `systemctl status <servico>`
+
+- Listar unidades com falha de inicialização:
+  `systemctl --failed`
+
+- Acompanhar logs de um serviço em tempo real (follow mode):
+  `journalctl -u <servico> -f`
+
+- Inspecionar apenas erros e alertas críticos do boot atual:
+  `journalctl -b -p err`
+
+- Consultar logs de um intervalo de tempo específico:
+  `journalctl --since "1 hour ago"`
+EOF
+
+# Página 8: Extração e Compressão Universal de Arquivos
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-compression.page"
+# arch-compression
+
+> Manipulação de arquivos compactados via CLI (ouch, tar, zip, 7z, zstd).
+
+- Descompactar qualquer formato automaticamente com sintaxe universal (ouch):
+  `ouch decompress arquivo.tar.gz` (ou via alias: `cat arquivo.tar.gz`)
+
+- Compactar arquivos em qualquer formato suportado:
+  `ouch compress pasta/ arquivo.tar.zst`
+
+- Criar arquivo tar.gz clássico:
+  `tar -czvf arquivo.tar.gz pasta/`
+
+- Extrair arquivo tar.gz clássico:
+  `tar -xzvf arquivo.tar.gz`
+
+- Extrair arquivo tar.xz ou tar.bz2:
+  `tar -xvf arquivo.tar.xz`
+
+- Compactar e descompactar arquivos ZIP:
+  `zip -r pacote.zip pasta/` e `unzip pacote.zip`
+
+- Extrair arquivo 7z ou RAR:
+  `7z x pacote.7z` ou `unrar x pacote.rar`
+EOF
+
+# Página 9: Gestão de Usuários, Grupos e Sessões Sudo
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-users-sudo.page"
+# arch-users-sudo
+
+> Administração de contas locais, grupos e elevação de privilégios com sudo.
+
+- Criar novo usuário com diretório home e shell fish:
+  `sudo useradd -m -s /usr/bin/fish <usuario>`
+
+- Adicionar usuário existente a grupos secundários (ex: docker, libvirt, wheel):
+  `sudo usermod -aG docker,libvirt,wheel <usuario>`
+
+- Renovar o timestamp da sessão sudo (estender sem reabrir prompt):
+  `sudo -v`
+
+- Encerrar imediatamente a sessão sudo em cache (revogar autenticação ativa):
+  `sudo -k`
+
+- Editar sudoers com validação de sintaxe mandatória:
+  `sudo visudo` (ou `sudo visudo -f /etc/sudoers.d/custom`)
+
+- Listar grupos do usuário atual:
+  `groups` ou `id`
+EOF
+
+# Página 10: Gerenciamento e Monitoramento de Processos
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-processes.page"
+# arch-processes
+
+> Monitoramento de consumo de hardware, sinais e encerramento de processos.
+
+- Abrir monitor moderno de processos, CPU, GPU, memória e rede:
+  `btop`
+
+- Buscar o PID de um processo pelo nome:
+  `pgrep -l <nome_do_processo>`
+
+- Enviar sinal de encerramento amigável (SIGTERM):
+  `pkill <nome_do_processo>` ou `kill <PID>`
+
+- Forçar encerramento imediato de processo travado (SIGKILL):
+  `kill -9 <PID>` ou `pkill -9 <nome_do_processo>`
+
+- Listar processos ordenados por maior consumo de memória:
+  `ps aux --sort=-%mem | head -n 15`
+
+- Alterar prioridade de CPU de um processo em execução (-20 mais rápido a 19 mais lento):
+  `sudo renice -n -5 -p <PID>`
+EOF
+
+# Página 11: Manutenção, Limpeza e Gerenciamento de Partições
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-maintenance.page"
+# arch-maintenance
+
+> Higienização de pacotes órfãos, cache, logs e análise de armazenamento.
+
+- Inspecionar UUIDs, partições e espaço livre em disco:
+  `lsblk -f` e `df -h`
+
+- Limpar cache do pacman mantendo apenas as 2 versões mais recentes:
+  `sudo paccache -r`
+
+- Remover completamente pacotes órfãos (dependências não mais utilizadas):
+  `sudo pacman -Rns (pacman -Qtdq)`
+
+- Limpar histórico de logs do journalctl com mais de 7 dias ou maior que 200MB:
+  `sudo journalctl --vacuum-time=7d` e `sudo journalctl --vacuum-size=200M`
+
+- Limpar containers parados, imagens não usadas e volumes do Docker:
+  `docker system prune -a --volumes`
+
+- Analisar saúde de discos NVMe/SSD via SMART:
+  `sudo smartctl -a /dev/nvme0n1`
+EOF
+
+# Página 12: Gerenciamento e Limpeza de Snapshots Btrfs (Snapper)
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-snapper.page"
+# arch-snapper
+
+> Criação, listagem, rollback e limpeza de snapshots Btrfs com Snapper.
+
+- Listar todos os snapshots existentes da partição raiz:
+  `snapper -c root list`
+
+- Listar snapshots do subvolume /home:
+  `snapper -c home list`
+
+- Criar um snapshot manual antes de testes arriscados:
+  `sudo snapper -c root create --description "Antes-da-modificacao"`
+
+- Deletar um snapshot específico pelo ID para liberar espaço:
+  `sudo snapper -c root delete <ID>`
+
+- Deletar um intervalo de snapshots antigos:
+  `sudo snapper -c root delete 10-25`
+
+- Comparar diferenças entre dois snapshots ou entre um snapshot e o sistema atual:
+  `snapper -c root status 5..0`
+
+- Executar balanceamento e limpeza de blocos não alocados no Btrfs:
+  `sudo btrfs balance start -dusage=50 -musage=50 /`
+
+- Verificar integridade de dados e checksums em segundo plano (Scrub):
+  `sudo btrfs scrub start /` e `sudo btrfs scrub status /`
+EOF
+
+# Página 13: Administração do Firewall (Firewalld / firewall-cmd)
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-firewall.page"
+# arch-firewall
+
+> Gerenciamento de zonas de rede, portas e regras do Firewalld via CLI.
+
+- Inspecionar o estado ativo do firewall e zona de rede em vigor:
+  `sudo firewall-cmd --state` e `sudo firewall-cmd --get-active-zones`
+
+- Exibir todas as regras, portas e serviços liberados na zona padrão:
+  `sudo firewall-cmd --list-all`
+
+- Liberar um serviço de rede pré-definido de forma permanente:
+  `sudo firewall-cmd --add-service=ssh --permanent && sudo firewall-cmd --reload`
+
+- Liberar uma porta TCP específica (ex: 8080 para desenvolvimento web):
+  `sudo firewall-cmd --add-port=8080/tcp --permanent && sudo firewall-cmd --reload`
+
+- Liberar uma porta UDP específica (ex: 19132 para servidores de jogos):
+  `sudo firewall-cmd --add-port=19132/udp --permanent && sudo firewall-cmd --reload`
+
+- Fechar e revogar uma porta aberta anteriormente:
+  `sudo firewall-cmd --remove-port=8080/tcp --permanent && sudo firewall-cmd --reload`
+
+- Bloquear um endereço IP malicioso com regra rica (Rich Rule):
+  `sudo firewall-cmd --add-rich-rule='rule family="ipv4" source address="192.168.1.150" reject' --permanent && sudo firewall-cmd --reload`
+EOF
+
+# Página 14: GPU NVIDIA (Módulos DKMS, Prime Offload e EnvyControl)
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-nvidia.page"
+# arch-nvidia
+
+> Gestão de módulos NVIDIA (open vs proprietário), PRIME render offload e EnvyControl.
+
+- Executar aplicação na GPU dedicada NVIDIA sob demanda (PRIME Offload):
+  `prime-run <comando>` (ex: `prime-run steam` ou `prime-run obs`)
+
+- Consultar modo gráfico ativo no notebook híbrido (EnvyControl):
+  `envycontrol --query`
+
+- Alternar para o modo Híbrido (iGPU para desktop + dGPU sob demanda):
+  `sudo envycontrol -s hybrid`
+
+- Alternar para o modo Integrado (desliga totalmente a GPU NVIDIA para poupar bateria):
+  `sudo envycontrol -s integrated`
+
+- Alternar para o modo Dedicado NVIDIA (GPU dGPU processa tudo diretamente):
+  `sudo envycontrol -s nvidia`
+
+- Alternar entre módulos NVIDIA Open e Proprietário:
+  `sudo pacman -S nvidia-open-dkms` (para Turing ou superior: RTX 20/30/40/50, GTX 16xx)
+  `sudo pacman -S nvidia-dkms` (para Pascal/Maxwell legado: GTX 10xx, 9xx)
+  `sudo mkinitcpio -P`
+EOF
+
+# Página 15: Repositório e Kernels CachyOS
+cat <<'EOF' > "${TEALDEER_PAGES_DIR}/arch-cachyos.page"
+# arch-cachyos
+
+> Repositórios com binários compilados em x86-64-v3/v4 e kernels de baixa latência BORE.
+
+- Testar compatibilidade de instruções da sua CPU com x86-64-v3:
+  `/lib64/ld-linux-x86-64.so.2 --help | grep -i supported`
+
+- Instalar kernel CachyOS de alta responsividade para jogos e desktop:
+  `sudo pacman -S linux-cachyos linux-cachyos-headers`
+
+- Regenerar imagens initramfs de todos os kernels instalados:
+  `sudo mkinitcpio -P`
+
+- Atualizar mirrorlists do CachyOS com servidores de menor latência:
+  `sudo cachyos-rate-mirrors`
 EOF
 
 log_success "Páginas do Tealdeer criadas em ${TEALDEER_PAGES_DIR}."
